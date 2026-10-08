@@ -1,13 +1,8 @@
-import { useRouter } from 'vue-router';
-import axios from 'E:/poketAi_workspace/allaboutu_vue/node_modules/axios/index';
-//import axios from 'axios'
-
-const router = useRouter();
+import axios from 'axios';
+import { expireSession } from '@/services/authSession';
 
 // axios 인스턴스 생성
 const axiosIns = axios.create({
-  // 여기에 헤더 등을 추가하세요
-  // ================================
   baseURL: 'http://localhost:2222',
   timeout: 360000,
   headers: {
@@ -15,88 +10,52 @@ const axiosIns = axios.create({
   },
 });
 
-// ℹ️ 로그인 후 각 요청에 인증 헤더를 보내기 위한 요청 인터셉터 추가
+// 요청 인터셉터: HTTP 요청을 보내기 전에 인증 정보를 추가
 axiosIns.interceptors.request.use(config => {
-  // 로컬 스토리지에서 토큰을 가져옵니다.
   const token = sessionStorage.getItem('accessToken');
-  const refresh = sessionStorage.getItem('refreshToken');
   const enrollType = sessionStorage.getItem('enrollType');
 
-  console.log("-------token value : ", token);
-  console.log("-------refresh value : ", refresh);
-  console.log("-------enrollType value : ", enrollType)
+  config.headers = config.headers || {};
 
-  // 토큰이 존재하는 경우
-  if (token) {
-    // 요청 헤더를 가져오고, 헤더가 정의되지 않은 경우 빈 객체를 할당합니다.
-    config.headers = config.headers || {};
-    
-    // 인증 헤더를 설정합니다.
-    // ℹ️ JSON.parse는 토큰을 문자열로 변환합니다.
-    //config.headers.Authorization = token ? `Bearer ${JSON.parse(token)}` : ''
+  // 호출자가 Authorization을 직접 지정했다면 덮어쓰지 않음
+  if (token && !config.headers.Authorization) {
     if(enrollType === 'KAKAO'){
-      config.headers.Authorization = `Kakao ${token}`
-      config.headers['userId'] = `${sessionStorage.getItem('userId')}`
-    }else{
+      // 카카오 로그인 사용자의 인증 정보 설정
+      config.headers.Authorization = `Kakao ${token}`;
+      config.headers.userId = sessionStorage.getItem('userId');
+    } else {
+      // 일반 JWT 인증 방식
       config.headers.Authorization = `Bearer ${token}`
-      config.headers.common = config.headers.common || {};
     }
-
-    // 리프레시 토큰을 요청 헤더에 추가합니다.
-    config.headers['refresh'] = `${refresh}`;
-
-    console.log('---config.headers.Authorization : ', config.headers.Authorization);
-    console.log('---config.headers.common[refresh] : ', config.headers.common['refresh']);
   }
 
-  // 수정된 구성을 반환합니다.
   return config;
 });
 
-// ℹ️ 401 응답을 처리하기 위한 응답 인터셉터 추가
+// 응답 인터셉터: 응답 성공 또는 실패 시 공통 처리
 axiosIns.interceptors.response.use(
-  response => {
-    return response;
-  },
+  response => response,
   error => {
-    // 에러 처리
-    if (error.response.status === 701 || error.response.status === 702) {
-      const errorCode = error.response.status;
-      const refreshToken = sessionStorage.getItem('refreshToken');
-      const accessToken = sessionStorage.getItem('accessToken');
+    const status = error.response?.status;
+    const authorization = String(
+      error.config?.headers?.Authorization || ''
+    );
 
-      // 비동기 함수 내부에서 처리
-      return (async () => {
-        try {
-          const response = await axios.post('/newtoken', {
-            refresh: refreshToken,
-            access: accessToken,
-            error: errorCode,
-          });
+    const currentToken = sessionStorage.getItem('accessToken');
 
-          console.log("==========accesstoken : ", response.data.accessToken);
-          console.log("==========refreshToken : ", response.data.refreshToken);
-
-          if (error.response.status === 701) {
-            sessionStorage.setItem('accessToken', JSON.stringify(response.data.accessToken));
-          } else if (error.response.status === 702) {
-            sessionStorage.setItem('refreshToken', JSON.stringify(response.data.refreshToken));
-          }
-
-          return axios(error.config);
-        } catch (refreshError) {
-          console.error('토큰 갱신 실패:', refreshError);
-
-          return Promise.reject(refreshError);
-        }
-      })();
-    } else if (error.response.status === 703) {
-      console.log("login 다시");
-      router.push('/login');
-    } else {
-      return Promise.reject(error);
+    // 현재 사용 중인 JWT로 요청했는데 401 응답을 받은 경우 세션 만료 처리
+    // 이전 로그인 요청의 지연된 401 응답으로 새 세션이 종료되는 것을 방지
+    if (
+      status === 401
+      && currentToken
+      && authorization === `Bearer ${currentToken}`
+    ) {
+      expireSession();
     }
-  },
+
+    // 오류를 호출한 쪽으로 전달하여 개별 예외 처리
+    return Promise.reject(error);
+  }
 );
 
 export default axiosIns;

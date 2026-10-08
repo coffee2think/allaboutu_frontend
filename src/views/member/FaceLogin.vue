@@ -3,6 +3,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
+import { saveSession } from '@/services/authSession'
 
 const router = useRouter()
 const streamVideo = ref(null)
@@ -97,13 +98,17 @@ const capture = () => {
 
           const { accessToken, refreshToken, role } = error.response.data
 
-          sessionStorage.setItem('accessToken', accessToken)
-          sessionStorage.setItem('refreshToken', refreshToken)
-          sessionStorage.setItem('role', role)
-          sessionStorage.setItem('userId', email.value)
-          sessionStorage.setItem('enrollType', 'MEMBER')
-          axios.defaults.headers['enrollType'] = 'MEMBER'
-          router.push('/')
+          const saved = saveSession({
+            accessToken,
+            refreshToken,
+            role,
+            userId: email.value,
+            enrollType: 'MEMBER',
+          });
+
+          if (saved) {
+            router.replace('/');
+          }
         }
           window.location.reload()
       })

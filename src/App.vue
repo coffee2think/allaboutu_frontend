@@ -10,6 +10,7 @@
 <script>
 import PageHeader from '@/views/common/PageHeader.vue'
 import PageFooter from '@/views/common/PageFooter.vue'
+import { startAuthMonitor } from '@/services/authSession';
 
 export default {
   name: 'App',
@@ -20,7 +21,8 @@ export default {
   data() {
     return {
       showHeader: true, // Header를 보이게 할지 여부
-      showFooter: true  // Footer를 보이게 할지 여부
+      showFooter: true,  // Footer를 보이게 할지 여부
+      stopAuthMonitor: null,
     };
   },
   watch: {
@@ -31,7 +33,16 @@ export default {
   },
   mounted() {
     // 초기 로딩 시 실행
+    this.stopAuthMonitor = startAuthMonitor(() => {
+      if (this.$route.path !== '/login') {
+        this.$router.replace('/login');
+      }
+    });
+    
     this.updateHeaderFooterVisibility();
+  },
+  beforeUnmout() {
+    this.stopAuthMonitor?.();
   },
   methods: {
     // Login 페이지와 Enroll 페이지가 열리면 Header, Footer 숨기는 처리
