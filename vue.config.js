@@ -9,7 +9,7 @@ module.exports = defineConfig({
   // -> true로 해야 cros 문제 해결할 수 있음
 
   lintOnSave:false,
-  outputDir: "../allaboutu_springboot/src/main/resources/static",
+  outputDir: "../allaboutu_backend-clean/src/main/resources/static",
   
   devServer: {
     proxy: {
