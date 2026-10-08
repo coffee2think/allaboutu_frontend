@@ -41,6 +41,8 @@ import FaceLogin from '@/views/member/FaceLogin.vue'
 import WebSiteMain from '@/views/website/WebSiteMain.vue'
 import WebSiteInsert from '@/views/website/WebSiteInsert.vue'
 
+import { syncSession } from "@/services/authSession";
+
 //각 페이지 컴포넌트에 대한 url path 지정
 //routes는 고정변수임
 
@@ -93,7 +95,8 @@ const routes = [
     {
         path: '/style/codyinsert',
         name: 'CodyInsert',
-        component: CodyInsert
+        component: CodyInsert,
+        meta: { requiresAuth: true },
     },
     {
         path: '/style/codyselect',
@@ -103,27 +106,32 @@ const routes = [
     {
         path: '/face',
         name: 'FaceMain',
-        component: FaceMain
+        component: FaceMain,
+        meta: { requiresAuth: true },
     },
     {
         path: '/personal',
         name: 'PersonalMain',
-        component: PersonalMain
+        component: PersonalMain,
+        meta: { requiresAuth: true },
     },
     {
         path: '/admin',
         name: 'AdminMain',
-        component: AdminMain
+        component: AdminMain,
+        meta: { requiresAuth: true },
     },
     {
         path: '/reports',
         name: 'AdminUser',
-        component: AdminUser
+        component: AdminUser,
+        meta: { requiresAuth: true },
     },
     {
         path: '/admins',
         name: 'AdminHome',
-        component: AdminHome
+        component: AdminHome,
+        meta: { requiresAuth: true },
     },
     {
         path: '/board',
@@ -143,12 +151,14 @@ const routes = [
             {
                 path: '/board/write',
                 name: 'BoardWrite',
-                component: BoardWrite
+                component: BoardWrite,
+                meta: { requiresAuth: true },
             },
             {
                 path: '/board/write/:boardNum',
                 name: 'BoardWriteForEdit',
                 component: BoardWrite,
+                meta: { requiresAuth: true },
                 beforeEnter: (to, from, next) => {
                     // const userAccessPermission = checkUserPermission();
                     const userAccessPermission = true;
@@ -171,7 +181,8 @@ const routes = [
     {
         path: '/chatbot',
         name: 'Chatbot',
-        component: Chatbot
+        component: Chatbot,
+        meta: { requiresAuth: true },
     },
     {
         path: '/notice',
@@ -181,7 +192,8 @@ const routes = [
     {
         path: '/notice/write',
         name: 'NoticeWrite',
-        component: NoticeWrite
+        component: NoticeWrite,
+        meta: { requiresAuth: true },
     },
     {
         path: '/notice/detail/:noticeNum',
@@ -191,7 +203,8 @@ const routes = [
     {
         path: '/notice/update/:noticeNum',
         name: 'NoticeUpdate',
-        component: NoticeUpdate
+        component: NoticeUpdate,
+        meta: { requiresAuth: true },
     },
     {
         path: '/website',
@@ -201,17 +214,20 @@ const routes = [
     {
         path: '/website/insert',
         name: 'WebSiteInsert',
-        component: WebSiteInsert
+        component: WebSiteInsert,
+        meta: { requiresAuth: true },
     },
     {
         path: '/website/insert/:webNum',
         name: 'WebSiteUpdate',
-        component: WebSiteInsert
+        component: WebSiteInsert,
+        meta: { requiresAuth: true },
     },
     {
         path: '/member/mypage',
         name: 'PageMyPage',
-        component: PageMyPage
+        component: PageMyPage,
+        meta: { requiresAuth: true },
     },
     {
         path: '/login/naver/callback',
@@ -234,8 +250,18 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
-    AOS.init(); // Initialize AOS
-    next();
+    AOS.init();
+    
+    const authenticated = syncSession();
+    const requiresAuth = to.matched.some(
+        route => route.meta.requiresAuth
+    );
+
+    if (requiresAuth && !authenticated) {
+        return { path: '/login', replace: true };
+    }
+    
+    return true;
 });
 
 //이 js파일 밖에서 import한 대상이 사용할 수 있게 처리함
